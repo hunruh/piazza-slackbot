@@ -11,10 +11,22 @@ The bot is written in Python 3 and requires the following packages:
 ```
 slacker
 piazza-api
-time
 ```
 
-## Set-up
+## Testing Setup
+
+Create a Python 3 virtual environment, then activate it:
+```bash
+> virtualenv -p python3 .venv
+> source .venv/bin/activate
+```
+
+Then install requirements with:
+```bash
+> pip3 install -r requirements.txt
+```
+
+## Slack Setup
 To set this up you need to have access to a page on Piazza and have a Slack account with the necessary permissions.
 
 Then follow this [link](https://my.slack.com/services/new/bot) to create a bot. Once you have created a bot make sure to save the API token as you will need it to authenticate your bot.
@@ -25,10 +37,16 @@ You will need to add your credentials for both Piazza and Slack into the relevan
 
 An optional parameter `include_link` can be passed to the main function to include or exclude a URL to the post when the message is sent. This is set to true by default but can be changed if you do not want to include links.
 
-## Usage
-I suggest using `screen` to run the bot on a machine where it can operate constantly without any interruptions. Simply open a new screen window, run the bot by typing `python3 slackbot.py`, and then detach from the window.
+## Lambda Setup
+The bot has been reconfigured for 2019 to run on [AWS Lambda](https://aws.amazon.com/lambda/). Usage falls well within the AWS free tier. It can be setup as follows:
 
-The bot is set up to constantly print out statements in the window to show that it is running, although you can comment this out if you wish.
+1. Navigate to the Lambda page within the AWS console, and click *Create function*
+2. Create a function with a Python 3.x runtime and a new execution role. Provide this role with the *AWSLambdaBasicExecutionRole* policy (this just gives the function permission to write to CloudWatch logs).
+3. Navigate to the CloudWatch page within the AWS console, and click on _Events_ > _Rules_.
+4. Create a new rule, using a schedule. Add your Lambda function as the target. Make sure to set this interval to be the same as you have configured within the function code (current value is 10 minutes).
+5. Configure the AWS CLI on your local machine if you have not already. Install the CLI ([Mac instructions](https://docs.aws.amazon.com/cli/latest/userguide/install-macos.html)) the run `aws configure`. You can generate an access key ID and secret access key in the AWS console from _Your Name_ > _My Security Credentials_ > _Access keys_.
+6. Follow the instructions describe [here](https://docs.aws.amazon.com/lambda/latest/dg/lambda-python-how-to-create-deployment-package.html) to create an AWS Lambda Deployment Package with Additional Dependencies, and deploy from your local system.
+7. Return to the AWS console, and change the _handler_ field of your Lambda function to be `slackbot.update_handler`
 
 The bot will then send a notification to the relevant Slack channel whenever a new post is added to Piazza, including a hyperlink to the relevant post.
 

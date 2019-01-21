@@ -5,6 +5,8 @@ Every time a new post is observed a notification will
 be sent out
 """
 
+import json
+from datetime import datetime
 from piazza_api import Piazza
 from slacker import Slacker
 from time import sleep
@@ -22,46 +24,43 @@ slack_token = "" #TODO Your slack API token goes here
 bot=Slacker(slack_token) #authorizing bot
 channel="" #TODO Name of the channel to post to
 bot_name = "" #TODO Name of your slackbot
+update_interval=10 # update frequency in minutes
 
 #URL for posts on the page
 POST_BASE_URL = "https://piazza.com/class/"+piazza_id+"?cid="
 
-def get_max_id(feed):
+def get_latest_posts(feed,latest_duration=update_interval):
+    latest_posts = []
+    current_time = datetime.utcnow()
+
     for post in feed:
-        if "pin" not in post:
-            return post["nr"]
-    return -1
+        post_updated = datetime.strptime(post["updated"], "%Y-%m-%dT%H:%M:%SZ")
+        post_age = (current_time - post_updated).total_seconds()
+        post_age_in_minutes = post_age / 60
+        if "pin" not in post and post_age_in_minutes < latest_duration:
+            latest_posts.append((post["nr"],post["subject"]))
 
-def check_for_new_posts(LAST_ID,network=network,include_link=True):
-    while True:
-        try:
-            UPDATED_LAST_ID = get_max_id(network.get_feed()['feed'])
-            if UPDATED_LAST_ID > LAST_ID:
-                attachment = None
-                message = None
-                if include_link is True:
-                    attachment = [
-                        {
-                            "fallback": "New post on Piazza!",
-                            "title": "New post on Piazza!",
-                            "title_link": POST_BASE_URL+str(UPDATED_LAST_ID),
-                            "text": "Follow the link to view this post",
-                            "color": "good"
-                        }
-                    ]
-                else:
-                    message="New post on Piazza!"
-                bot.chat.post_message(channel,message, \
-                as_user=bot_name,parse='full',attachments=attachment)
-                LAST_ID = UPDATED_LAST_ID
-            else:
-                pass
-            print("Slackbot is running...")
-            sleep(60)
-        except:
-            print("Error when attempting to get Piazza feed, going to sleep...")
-            sleep(60)
+    return latest_posts
 
-if __name__ == '__main__':
-    LAST_ID = get_max_id(network.get_feed()['feed'])
-    check_for_new_posts(LAST_ID)
+def check_for_new_posts(network=network,include_link=True):
+    latest_posts = get_latest_posts(network.get_feed()['feed'])
+    for post_id,post_title in latest_posts:
+        attachment = None
+        message = None
+        if include_link is True:
+            attachment = [
+                {
+                    "fallback": post_title,
+                    "title": post_title,
+                    "title_link": POST_BASE_URL+str(post_id),
+                    "text": "This post is either new or has been updated. Follow the link to view this post on Piazza",
+                    "color": "good"
+                }
+            ]
+        else:
+            message="New post on Piazza!"
+        bot.chat.post_message(channel,message, \
+        as_user=bot_name,parse='full',attachments=attachment)
+
+def update_handler(event,context):
+    check_for_new_posts()

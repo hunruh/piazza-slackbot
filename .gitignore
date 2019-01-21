@@ -1,0 +1,6 @@
+# Lambda deployment files
+package/
+
+# virtualenv
+.venv/
+venv/
